@@ -1,0 +1,22 @@
+{
+  "name": "ballots",
+  "version": "1.0.0",
+  "description": "This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a Hardhat Ignition module that deploys that contract.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Munaiz",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "hardhat": "^2.22.15"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ignition-ethers": "^0.15.7",
+    "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
+    "@openzeppelin/contracts": "^5.1.0",
+    "mocha": "^10.8.2"
+  },
+  "keywords": []
+}
