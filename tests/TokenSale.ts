@@ -6,6 +6,8 @@ import { loadFixture } from "@nomicfoundation/hardhat-toolbox-viem/network-helpe
 const TEST_RATIO = 100n;
 const TEST_PRICE = 10n;
 const TEST_ETH_PAYMENT_SIZE = parseEther("10");
+const TEST_AMOUNT_TO_BURN = TEST_ETH_PAYMENT_SIZE * TEST_RATIO / 2n
+const MINTER_ROLE = "0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6"
 
 describe("NFT Shop", async () => {
   
@@ -35,10 +37,10 @@ describe("NFT Shop", async () => {
       let tokenContractSupply = await tokenContract.read.balanceOf([tokenAddress])
 
       
-      let expectedAmount = 20n * (10n ** 8n) // accounts for the big numbers in Solidity + EVM
+      let expectedAmount = 20n * (10n ** 18n) // accounts for the big numbers in Solidity + EVM
       expect(totalSupply).to.eq(expectedAmount)
       
-      expectedAmount = 10n * (10n ** 8n) // accounts for the big numbers in Solidity + EVM
+      expectedAmount = 10n * (10n ** 18n) // accounts for the big numbers in Solidity + EVM
       expect(tokenContractSupply).to.eq(expectedAmount)
       expect(ownerSupply).to.eq(expectedAmount)
 
@@ -59,7 +61,6 @@ describe("NFT Shop", async () => {
   })
 
   describe("When a user buys an ERC20 from the Token contract", async () => {  
-
     it.only("charges the correct amount of ETH", async () => {
       const { publicClient, tokenSaleContract, owner } = await loadFixture(deployFixture);
 
@@ -104,13 +105,66 @@ describe("NFT Shop", async () => {
   })
 
   describe("When a user burns an ERC20 at the Shop contract", async () => {
-    it("gives the correct amount of ETH", async () => {
-      throw new Error("Not implemented");
+    it.only("gives the correct amount of ETH", async () => {
+      const {token, owner, tokenSaleContract, publicClient } = await loadFixture(deployFixture);
+      // 1. Call the buyTokens function
+      let buyTokenHash = await tokenSaleContract.write.buy({
+        value: TEST_ETH_PAYMENT_SIZE,
+        account:owner.account
+      })
+      await publicClient.waitForTransactionReceipt({hash:buyTokenHash})
+
+      // 2. Check ETH balance
+      let ethBalanceBeforeBurn = await publicClient.getBalance({address: owner.account.address})
+      
+      // 3. A) Approve tokens to be spent
+      let approveTokenTxn = await token.write.approve([tokenSaleContract.address, TEST_AMOUNT_TO_BURN],{account: owner.account})
+      let approveTokenReceipt = await publicClient.waitForTransactionReceipt({hash: approveTokenTxn})
+      let approveTokenGasCost = approveTokenReceipt.gasUsed * approveTokenReceipt.effectiveGasPrice
+
+      // 3. Call burn function
+      let returnTokentxn = await tokenSaleContract.write.returnToken([TEST_AMOUNT_TO_BURN])
+      let {gasUsed, effectiveGasPrice} = await publicClient.waitForTransactionReceipt({hash:returnTokentxn})
+      let gasCost = gasUsed * effectiveGasPrice // total "tax" paid as part of the txn
+
+      // 4. Check ETH balance
+      let ethBalanceAfterBurn = await publicClient.getBalance({address: owner.account.address})
+
+      let difference = ethBalanceAfterBurn - ethBalanceBeforeBurn
+      // 5. Check if difference is correct
+
+      expect(difference).to.equal(TEST_ETH_PAYMENT_SIZE / 2n - gasCost - approveTokenGasCost);
     })
-    it("burns the correct amount of tokens", async () => {
-      throw new Error("Not implemented");
+
+    it.only("burns the correct amount of tokens", async () => {
+      const {token, owner, tokenSaleContract, publicClient } = await loadFixture(deployFixture);
+      /* 1. Call the buyTokens function */
+      let buyTokensTxn = await tokenSaleContract.write.buy({value: TEST_ETH_PAYMENT_SIZE, account: owner.account})
+      /** the way tokenSaleContract.buy is 'payable' where you just 'throw' the money at the contract 
+      and the amount of tokens you receive is determined by how much eth you're sending and the ratio */
+      await publicClient.waitForTransactionReceipt({hash:buyTokensTxn}) 
+
+      /** 2. Check token balance (before burn) */
+      let tokenBalanceBefore = await token.read.balanceOf([owner.account.address])
+      
+      /** 3. A) Approve tokens to be spent  */
+      let approveTokenTxn = await token.write.approve([tokenSaleContract.address, TEST_AMOUNT_TO_BURN],{account: owner.account})
+      await publicClient.waitForTransactionReceipt({hash: approveTokenTxn})
+
+      /** 3  B) Call burn function  */
+      let returnTokensTxn = await tokenSaleContract.write.returnToken([TEST_AMOUNT_TO_BURN])
+      await publicClient.waitForTransactionReceipt({hash: returnTokensTxn})
+
+      /** 4. Check token balance (after burn) token balance should decrease */
+      let tokenBalanceAfter = await token.read.balanceOf([owner.account.address])
+      
+      /** 5. Check if difference is correct*/
+      let difference = tokenBalanceBefore - tokenBalanceAfter
+      expect(difference).to.equal(TEST_AMOUNT_TO_BURN)
+
     });
   })
+
   describe("When a user buys an NFT from the Shop contract", async () => {
     it("charges the correct amount of ERC20 tokens", async () => {
       throw new Error("Not implemented");
@@ -146,7 +200,7 @@ async function deployFixture() {
   const nft = await viem.deployContract("MyNFT")
 
   let tokenSaleContract = await viem.deployContract("TokenSale", [TEST_RATIO, TEST_PRICE, token.address, nft.address]);
-  const grantTokenMinterRole = await token.write.grantRole(["0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6",tokenSaleContract.address])
+  const grantTokenMinterRole = await token.write.grantRole([MINTER_ROLE,tokenSaleContract.address])
   
 
   return {    

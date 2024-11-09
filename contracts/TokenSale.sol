@@ -26,4 +26,11 @@ contract TokenSale is Ownable {
         token.mint(msg.sender, msg.value * ratio);
     }
 
+    function returnToken(uint256 _amount) public {
+        // TODO burn the tokens received
+        token.burnFrom(msg.sender, _amount);
+        payable(msg.sender).transfer(_amount / ratio);
+
+    }
+
 }
