@@ -63,30 +63,41 @@ describe("NFT Shop", async () => {
     it.only("charges the correct amount of ETH", async () => {
       const { publicClient, tokenSaleContract, owner } = await loadFixture(deployFixture);
 
-      // the balance after a sale should be greater than the balance after
-      let balanceBefore = await publicClient.getBalance({address: owner.account.address})
-
+      let balanceBefore = await publicClient.getBalance({address: owner.account.address}) // checking balance of ETH
       let buyTokenTxn = await tokenSaleContract.write.buy({
         value: TEST_ETH_PAYMENT_SIZE,
         account:owner.account
       })
-      await publicClient.waitForTransactionReceipt({hash:buyTokenTxn})
 
-      let balanceAfter = await publicClient.getBalance({address: owner.account.address})
+      let {gasUsed, effectiveGasPrice} = await publicClient.waitForTransactionReceipt({hash:buyTokenTxn})
+      let gasCost = gasUsed * effectiveGasPrice // total "tax" paid as part of the txn
 
-      let difference = balanceAfter - balanceBefore;
-      expect(difference).to.equal(TEST_ETH_PAYMENT_SIZE);
+      let balanceAfter = await publicClient.getBalance({address: owner.account.address}) // checking balance of ETH
+
+      let difference = balanceBefore - balanceAfter; // the balance before > balance after
+
+      expect(difference).to.equal(TEST_ETH_PAYMENT_SIZE + gasCost);
       // expect(difference).to.be.greaterThan(0);
 
     })
 
     it.only("gives the correct amount of tokens", async () => {
-      let beforeSaleBalance = 0; // TODO
-      let afterSaleBalance = 0; // TODO
+      const {token, owner, tokenSaleContract, publicClient } = await loadFixture(deployFixture);
+      // we expect the number of tokens in caller's address to increase by ratio
 
-      let difference = afterSaleBalance - beforeSaleBalance;
+      let tokenBalanceBefore = await token.read.balanceOf([owner.account.address]);
+      
+      let buyTokenTxn = await tokenSaleContract.write.buy({
+        value: TEST_ETH_PAYMENT_SIZE,
+        account:owner.account
+      })
+
+      await publicClient.waitForTransactionReceipt({hash:buyTokenTxn})
+
+      let tokenBalanceAfter = await token.read.balanceOf([owner.account.address]);
+
+      let difference = tokenBalanceAfter - tokenBalanceBefore;
       expect(difference).to.equal(TEST_ETH_PAYMENT_SIZE * TEST_RATIO); // TODO
-      // expect(difference).to.be.greaterThan(0);
 
     });
 
@@ -124,6 +135,9 @@ describe("NFT Shop", async () => {
 });
 
 async function deployFixture() {
+  // Get the public client for reading from the contract
+  const publicClient = await viem.getPublicClient();
+
   // Get accounts + Addresses
   const [owner, addr1, addr2] = await viem.getWalletClients();
   const [ownerAddress, addr1Address, addr2Address] = await Promise.all([ owner.account.address, addr1.account.address, addr2.account.address,]);
@@ -132,13 +146,12 @@ async function deployFixture() {
   const nft = await viem.deployContract("MyNFT")
 
   let tokenSaleContract = await viem.deployContract("TokenSale", [TEST_RATIO, TEST_PRICE, token.address, nft.address]);
-
+  const grantTokenMinterRole = await token.write.grantRole(["0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6",tokenSaleContract.address])
   
-  // Get the public client for reading from the contract
-  const publicClient = await viem.getPublicClient();
 
   return {    
     tokenSaleContract, // Contract instance
+    publicClient, // Public client for reading contract state
     token,
     nft,
 
@@ -150,6 +163,5 @@ async function deployFixture() {
     addr1Address,
     addr2Address,
 
-    publicClient, // Public client for reading contract state
   };
 }

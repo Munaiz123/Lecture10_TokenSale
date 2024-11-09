@@ -23,6 +23,7 @@ contract TokenSale is Ownable {
 
     function buy() public payable{
         //TODO
+        token.mint(msg.sender, msg.value * ratio);
     }
 
 }
