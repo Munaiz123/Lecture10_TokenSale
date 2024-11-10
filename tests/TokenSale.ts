@@ -8,6 +8,7 @@ const TEST_PRICE = 10n;
 const TEST_ETH_PAYMENT_SIZE = parseEther("10");
 const TEST_AMOUNT_TO_BURN = TEST_ETH_PAYMENT_SIZE * TEST_RATIO / 2n
 const MINTER_ROLE = "0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6"
+const TEST_TOKEN_ID = 0n;
 
 describe("NFT Shop", async () => {
   
@@ -167,10 +168,22 @@ describe("NFT Shop", async () => {
 
   describe("When a user buys an NFT from the Shop contract", async () => {
     it("charges the correct amount of ERC20 tokens", async () => {
-      throw new Error("Not implemented");
+      /**
+       * 1. Buy ERC20 tokens - (tokenSalesContract.write.buy()) 
+       * 2. Get ERC20 token balance BEFORE calling buyNFT()
+       * 3. Approve ERC20 tokens to be spent
+       * 4. Call buyNFT function
+       * 5. Get ERC20 token balance AFTER calling buyNFT()
+       * 6. Check difference
+       */
     })
     it("gives the correct NFT", async () => {
-      throw new Error("Not implemented");
+        /**
+       * 1. Buy ERC20 tokens - (tokenSalesContract.write.buy()) 
+       * 2. Approve ERC20 tokens to be spent
+       * 3. Call buyNFT() 
+       * 4. Check owner of NFT
+       */
     });
   })
   describe("When a user burns their NFT at the Shop contract", async () => {
@@ -200,7 +213,9 @@ async function deployFixture() {
   const nft = await viem.deployContract("MyNFT")
 
   let tokenSaleContract = await viem.deployContract("TokenSale", [TEST_RATIO, TEST_PRICE, token.address, nft.address]);
-  const grantTokenMinterRole = await token.write.grantRole([MINTER_ROLE,tokenSaleContract.address])
+  let grantTokenMinterRole = await token.write.grantRole([MINTER_ROLE,tokenSaleContract.address])
+  let grantNFTMinterRole = await nft.write.grantRole([MINTER_ROLE, tokenSaleContract.address])
+
   
 
   return {    

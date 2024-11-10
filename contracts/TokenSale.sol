@@ -30,7 +30,16 @@ contract TokenSale is Ownable {
         // TODO burn the tokens received
         token.burnFrom(msg.sender, _amount);
         payable(msg.sender).transfer(_amount / ratio);
+    }
 
+    function buyNFT(uint256 _tokenId) public {
+        token.transferFrom(msg.sender, address(this), price);
+        nft.safeMint(msg.sender, _tokenId);
+    }
+
+    function returnNFT(uint256 _tokenId) public {
+        nft.burn(_tokenId);
+        token.transfer(msg.sender, price / 2);
     }
 
 }
